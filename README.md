@@ -1,68 +1,31 @@
-# WordPress VIP Skeleton Application
+# WordPress VIP — GitHub Actions Office Hours
 
-Welcome to WordPress VIP! This repository is a starting point for building your WordPress VIP application, including all the base directories.
+Welcome to the repo that showcases examples and resources that were covered during our October 2025 Office Hours presentation about leveraging GitHub Actions.
 
-## Guidebooks
+## VIP Documentation
 
-We recommend starting with one of the following WordPress VIP guidebooks:
+* [Build and deploying on VIP guide](https://docs.wpvip.com/code-deployment/default-deployment/build-and-deploy/)
+* [Deploying built files from .gitignore and .deployignore](https://docs.wpvip.com/code-deployment/default-deployment/build-and-deploy/ci-cd/#h-deploying-built-files-from-gitignore)
+* [VIP-CLI and CI Automation](https://docs.wpvip.com/vip-cli/advanced-usage/#h-automation)
+* [Custom Deployment with continuous deployment](https://docs.wpvip.com/code-deployment/custom-deployment/continuous-deployment/)
+* [Updating an environment’s deploying branch](https://docs.wpvip.com/code-deployment/default-deployment/deploying-branches/update/)
 
-* [Get Started](https://docs.wpvip.com/guidebooks/get-started/)
-* [Development on WordPress VIP]([https://docs.wpvip.com/technical-references/development-workflow/](https://docs.wpvip.com/guidebooks/develop-on-wpvip/))
-* [Prepare for a Site Launch](https://docs.wpvip.com/guidebooks/prepare-for-launch/)
+## Resources
 
-## Directories
+* [Simplified GitHub Actions workflow example](https://github.com/Automattic/vip-go-build/blob/master/.github/workflows/ci-sample.yml)
+* [Reusable boilerplate deploy.sh script](https://raw.githubusercontent.com/Automattic/vip-go-build/master/deploy.sh)
+* [Migrating from CircleCI to GitHub Actions](https://docs.github.com/en/actions/tutorials/migrate-to-github-actions/manual-migrations/migrate-from-circleci)
+* [Migrating from Travis CI to GitHub Actions](https://docs.github.com/en/actions/tutorials/migrate-to-github-actions/manual-migrations/migrate-from-travis-ci)
+* [ektos/act: Run your GitHub Actions locally](https://github.com/nektos/act)
+* [Parsely/wp-parsely: Matrix strategy example](https://github.com/Parsely/wp-parsely/blob/develop/.github/workflows/integration-tests.yml)
 
-All the following directories are required and must not be removed:
 
-* `client-mu-plugins/`: For [always active global plugins](https://docs.wpvip.com/technical-references/vip-codebase/client-mu-plugins-directory/) (similar to `mu-plugins`).
-* `docs/`: Not mounted to production, so [useful for storing documentation](https://docs.wpvip.com/technical-references/vip-codebase/docs-directory/) about an applications features and requirements.
-* `images/`: Store [your site's favicons](https://docs.wpvip.com/technical-references/vip-codebase/images-directory/) here. All other public-facing images should be uploaded or [imported](https://docs.wpvip.com/how-tos/launch-a-site-with-vip/launch-with-vip-migrate-content/) to the WordPress dashboard or stored as part of your `/theme/` assets.
-* `languages/`: For [`.po` and `.mo` translation files](https://docs.wpvip.com/how-tos/upload-languages-to-the-language-directory/), which specify the translated strings for the site.
-* `plugins/`: Your site's [regular plugins](https://docs.wpvip.com/technical-references/vip-codebase/plugins-directory/).
-* `private/`: Provides access to [files that are not directly web accessible](https://docs.wpvip.com/technical-references/vip-codebase/private-directory/), but can be accessed by your theme or plugin code.
-* `themes/`: [Themes available to your sites](https://docs.wpvip.com/technical-references/vip-codebase/themes-on-vip-go/). We recommend keeping the default theme available for [testing purposes](https://docs.wpvip.com/how-tos/prepare-for-site-launch/testing-your-site/).
-* `vip-config/`: For [custom configurations](https://docs.wpvip.com/technical-references/vip-codebase/vip-config-directory/) and additional [`sunrise.php` changes](https://docs.wpvip.com/technical-references/multisites/sunrise-php/). This folder’s `vip-config.php` can be used to supply things usually found in `wp-config.php`..
+## Directories and Files
 
-These directories will also be available on production web servers. Any additional directories created in your GitHub repository that are not included in the above list will not be mounted onto your site, and so will not be web-accessible.
+The following directories/files are relevant to the GitHub Actions demo. All other files you see in this repo are based on our [vip-go-skeleton](https://github.com/Automattic/vip-go-skeleton) starting point project for your VIP application.
 
-For more information on how our codebase is structured, see https://docs.wpvip.com/technical-references/vip-codebase/. 
-
-The `docs/` directory is a special directory that contains your documentation for your application. It is not mounted onto your site, but is available for you to use. See [docs/index.php](docs/index.php) for more information.
-
-## PHPCS for checking coding standards
-
-This repo contains a starting point for installing and using a _local_ version of [PHP_CodeSniffer](https://docs.wpvip.com/how-tos/php_codesniffer/) (PHPCS). To get started, you'll need to have [Composer](https://getcomposer.org/) installed, then open a command line at this directory, and run:
-
-```sh
-composer install
-```
-
-This will install PHPCS and register the below standards:
-
- - [VIP Coding Standards](https://github.com/Automattic/VIP-Coding-Standards)
- - [WordPress Coding Standards](https://github.com/WordPress/WordPress-Coding-Standards)
- - [PHPCompatibilityWP Standard](https://github.com/PHPCompatibility/PHPCompatibilityWP)
-
-The [`.phpcs.xml.dist`](https://docs.wpvip.com/technical-references/vip-codebase/phpcs-xml-dist/) file contains a _suggested_ configuration, but you are free to amend this. You can also [extend](https://docs.wpvip.com/technical-references/vip-codebase/phpcs-xml-dist/#h-extending-the-root-phpcs-xml-dist-file-for-custom-themes-and-plugins) it for more granularity of configuration for theme and custom plugins.
-
-To run PHPCS, navigate to the directory where the relevant `.phpcs.xml.dist` lives, and type:
-
-```sh
-vendor/bin/phpcs
-```
-
-See the [PHPCS documentation](https://github.com/squizlabs/PHP_CodeSniffer/wiki/Usage) (or run `phpcs -h`) for the available command line arguments.
-
-## Support
-
-If you need help with anything, VIP's support team is [just a ticket away](https://wpvip.com/accessing-vip-support/).
-
-## Your documentation here
-
-Feel free to add to or replace this README.md content with content unique to your project, for example:
-
-* Project-specific notes; like a list of VIP environments and branches,
-* Workflow documentation; so everyone working in this repo can follow a defined process, or
-* Instructions for testing new features.
-
-This can be detailed in the `docs/` directory.
+* `.github/workflows/ci-build-and-deploy.yml`: Basic example of a single workflow job that triggers on a commit push to a branch and builds static assets for a theme.
+* `.github/workflows/ci-monorepo-build-and-deploy.yml`: Workflow that demonstrates multiple sequential jobs, dependency caching, and artifacts.
+* `client-mu-plugins/custom-blocks-plugin` and `themes/child-theme`: Basic example of a custom plugin and theme that both require production-ready assets to be built during a CI/CD pipeline.
+* `.deployignore`: Demonstrates excluding `src` directories from being deployed.
+* `.gitignore`: Demonstrates excluding `build` and composer installed plugins directories from being deployed.

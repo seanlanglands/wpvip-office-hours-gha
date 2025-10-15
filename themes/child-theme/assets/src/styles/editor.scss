@@ -1,0 +1,14 @@
+/*
+  =====
+  NOTE:
+  =====
+
+  This file is compiled to "editor.css" and is
+  used by the WordPress editor, in the admin area.
+*/
+
+@import "./index";
+
+.block-editor-specific-selector {
+  color: red;
+}
