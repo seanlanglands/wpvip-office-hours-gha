@@ -1,18 +1,28 @@
 {
-  "name": "automattic/vip-go-skeleton",
-  "description": "Used for setting up development dependencies across the whole repository.",
-  "homepage": "https://github.com/automattic/vip-go-skeleton",
-  "license": "GPL-2.0-or-later",
-  "require": {
-    "php": ">=8.2"
-  },
-  "require-dev": {
-    "automattic/vipwpcs": "^3",
-    "phpcompatibility/phpcompatibility-wp": "^2"
-  },
-  "config": {
-    "allow-plugins": {
-      "dealerdirect/phpcodesniffer-composer-installer": true
-    }
-  }
+	"name": "seanlanglands/wpvip-office-hours-gha",
+	"description": "Demo monorepo for building and deploying to a VIP application.",
+	"type": "project",
+	"license": "GPL-2.0-or-later",
+	"require": {
+		"php": ">=8.2",
+		"composer/installers": "^2.3",
+		"automattic/co-authors-plus": "3.6.6"
+	},
+	"require-dev": {
+		"automattic/vipwpcs": "^3",
+		"phpcompatibility/phpcompatibility-wp": "^2"
+	},
+	"config": {
+		"allow-plugins": {
+			"dealerdirect/phpcodesniffer-composer-installer": true,
+			"composer/installers": true
+		}
+	},
+	"extra": {
+		"installer-paths": {
+			"composer-wp-plugins/{$name}/": [
+				"type:wordpress-plugin"
+			]
+		}
+	}
 }
