@@ -1,0 +1,174 @@
+# =============================================================================
+# GitHub Actions Workflow Example: CI/CD Pipeline for WordPress VIP
+# =============================================================================
+# This workflow demonstrates a complete CI/CD pipeline for a WordPress VIP site
+# that builds assets and deploys them to a built branch for deployment.
+# =============================================================================
+
+name: CI (VIP Build and Deploy)
+
+# =============================================================================
+# WORKFLOW TRIGGERS
+# =============================================================================
+# Define when this workflow should run:
+# 1. On push to the 'gha-demo' branch
+# 2. Manual trigger via workflow_dispatch (for testing/debugging)
+# =============================================================================
+on:
+  push:
+    branches:
+      - "production" # Only run on this specific branch.
+  workflow_dispatch: # Allow manual triggering from GitHub UI.
+
+# =============================================================================
+# WORKFLOW PERMISSIONS
+# =============================================================================
+# Control what permissions the workflow has when interacting with:
+# - GitHub API (for repository operations)
+# - Repository contents (for reading/writing files)
+# =============================================================================
+permissions:
+  contents: read # Default: read-only access
+
+# =============================================================================
+# GLOBAL ENVIRONMENT VARIABLES
+# =============================================================================
+# Define variables that can be used across all jobs and steps.
+# =============================================================================
+env:
+  DIR_CHILD_THEME: themes/child-theme # Path to the child theme directory.
+
+# =============================================================================
+# JOBS DEFINITION
+# =============================================================================
+# Jobs are the main building blocks of a workflow. Each job runs in parallel
+# by default and can contain multiple steps that run sequentially.
+# =============================================================================
+jobs:
+  ci:
+    name: CI # Display name for this job in the GitHub Actions UI.
+    runs-on: ubuntu-latest # Use the latest Ubuntu runner (virtual machine).
+
+    # =========================================================================
+    # JOB-SPECIFIC PERMISSIONS
+    # =========================================================================
+    # Override the global permissions for this specific job.
+    # We need 'write' access to push the built branch back to the repository.
+    # =========================================================================
+    permissions:
+      contents: write  # Allow writing to repository (needed for built branch).
+
+    # =========================================================================
+    # JOB-SPECIFIC ENVIRONMENT VARIABLES
+    # =========================================================================
+    # Variables that are only available within this job
+    # =========================================================================
+    env:
+      # The suffix to append to the current branch name when deploying the built branch.
+      # If migrating from another CI provider to GitHub Actions, a different suffix, like -gha-built,
+      # can be used to avoid conflicts during the CI migration.
+      #
+      # Example: If current branch is 'gha-demo', the built branch will be 'gha-demo-built'
+      #
+      # NOTE: For the changes to be deployed, the WordPress VIP application must be configured
+      # to deploy from the built branch.
+      # https://docs.wpvip.com/code-deployment/default-deployment/deploying-branches/update/
+      VIP_DEPLOY_SUFFIX: "-built"
+    # =========================================================================
+    # WORKFLOW STEPS
+    # =========================================================================
+    # Steps run sequentially within a job. Steps contains examples of:
+    # 1. Use a pre-built action (uses:)
+    # 2. Run shell commands (run:)
+    # 3. Set environment variables (env:)
+    # =========================================================================
+    steps:
+      # =======================================================================
+      # STEP 1: CHECKOUT SOURCE CODE
+      # =======================================================================
+      # Download the repository code to the runner's workspace.
+      # This is typically the first step in most workflows
+      # =======================================================================
+      - name: Check out source code
+        uses: actions/checkout@v5 # Official GitHub action for checking out code.
+
+      # =======================================================================
+      # STEP 2: SETUP NODE.JS ENVIRONMENT
+      # =======================================================================
+      # Install and configure Node.js on the runner
+      # Required for building JavaScript/CSS assets
+      # =======================================================================
+      - name: Install Node.js
+        uses: actions/setup-node@v5 # Official GitHub action for Node.js setup.
+        with:
+          node-version: '20' # Use Node.js version 20 (LTS).
+
+      # =======================================================================
+      # STEP 3: INSTALL DEPENDENCIES
+      # =======================================================================
+      # Install npm packages defined in package.json.
+      # Using 'npm ci' for faster, reliable, reproducible builds.
+      # =======================================================================
+      - name: Install theme dependencies
+        run: npm ci --prefix ${{ env.DIR_CHILD_THEME }}
+        # --prefix: Run command in the specified directory
+
+      # =======================================================================
+      # STEP 4: BUILD ASSETS
+      # =======================================================================
+      # Compile and optimize JavaScript, CSS, and other assets.
+      # This typically runs webpack, sass, or other build tools.
+      # =======================================================================
+      - name: Build assets
+        run: npm run build --prefix ${{ env.DIR_CHILD_THEME }}
+        # Executes the 'build' script defined in the directory's package.json.
+
+      # =======================================================================
+      # STEP 5: VERIFY BUILD SUCCESS
+      # =======================================================================
+      # Test that the build process completed successfully by checking
+      # if expected output files were created.
+      # =======================================================================
+      - name: Test the build
+        run: |
+          # Check if the main CSS file was created (indicates successful build)
+          if [ -f ${{ env.DIR_CHILD_THEME }}/assets/build/main.css ]; then
+            echo "✅ Build succeeded - main.css found";
+          else
+            echo "❌ Build failed - main.css file missing";
+            exit 1  # Exit with error code to fail the workflow
+          fi
+
+      # =======================================================================
+      # STEP 6: DEPLOY TO VIP BUILT BRANCH
+      # =======================================================================
+      # This is the final and most important step for WordPress VIP deployment.
+      # It pushes the built assets to a separate branch that the VIP Platform monitors for deployment.
+      # =======================================================================
+
+      # REQUIRED: Fetch and run the VIP deploy script to push the build artifacts to the built branch.
+      # If amending an existing config, the step below is one of the required steps to include.
+      # This will push the result to the {current_branch}-built branch,
+      # or {current_branch}{VIP_DEPLOY_SUFFIX} if a suffix is configured above.
+      #
+      # Example: If current branch is 'gha-demo', this creates/updates 'gha-demo-built'
+      #
+      # NOTE: For the changes to be deployed, the WordPress VIP application must be configured
+      # to deploy from the built branch.
+      # https://docs.wpvip.com/code-deployment/default-deployment/deploying-branches/update/
+      #
+      # The {{ secrets.GITHUB_TOKEN }} variable is an automatically generated token used to push
+      # the new built branch to this GitHub repository.
+      # https://docs.github.com/en/actions/security-for-github-actions/security-guides/automatic-token-authentication
+      - name: Commit to built branch
+        run: |
+          # Create authentication token for GitHub API access
+          export GITHUB_AUTH_TOKEN=$(echo -n "x-access-token:${{ secrets.GITHUB_TOKEN }}" | base64 -w 0)
+
+          # Download and execute the VIP deployment script
+          # This script will:
+          # 1. Run checks to avoid recursion and aborts if required variables or directories are missing.
+          # 2. Syncs the current branch with the destination*-built branch.
+          # 3. Commits any changes (if there are any) and pushes them to the *-built branch with the original commit's author info.
+          # 4. The VIP platform deployment process is triggered.
+          bash <(curl -s "https://raw.githubusercontent.com/Automattic/vip-go-build/master/deploy.sh")

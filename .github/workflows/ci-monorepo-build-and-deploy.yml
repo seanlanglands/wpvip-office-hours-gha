@@ -1,0 +1,357 @@
+# =============================================================================
+# GitHub Actions Workflow Example: Monorepo CI/CD Pipeline for WordPress VIP
+# =============================================================================
+# This workflow demonstrates a complete CI/CD pipeline for a WordPress VIP site
+# that builds assets and deploys them to a built branch for deployment.
+# This workflow is designed for a monorepo with multiple packages.
+# =============================================================================
+
+name: CI Monorepo (VIP Build and Deploy)
+
+# =============================================================================
+# WORKFLOW TRIGGERS
+# =============================================================================
+# Define when this workflow should run:
+# 1. On push to the 'gha-demo' branch
+# 2. Manual trigger via workflow_dispatch (for testing/debugging)
+# =============================================================================
+on:
+  push:
+    branches:
+      - "production" # Only run on this specific branch.
+  workflow_dispatch: # Allow manual triggering from GitHub UI.
+
+# =============================================================================
+# WORKFLOW PERMISSIONS
+# =============================================================================
+# Control what permissions the workflow has when interacting with:
+# - GitHub API (for repository operations)
+# - Repository contents (for reading/writing files)
+# =============================================================================
+permissions:
+  contents: read
+
+# =============================================================================
+# GLOBAL ENVIRONMENT VARIABLES
+# =============================================================================
+# Define variables that can be used across all jobs and steps.
+# In a monorepo, we define paths to multiple packages that need building.
+# =============================================================================
+env:
+  DIR_CHILD_THEME: themes/child-theme # Path to the child theme directory
+  DIR_CUSTOM_BLOCKS_PLUGIN: client-mu-plugins/custom-blocks-plugin # Path to custom blocks plugin
+
+# =============================================================================
+# JOBS DEFINITION
+# =============================================================================
+# Jobs are the main building blocks of a workflow. In a monorepo setup, we split
+# the work into multiple jobs for better organization and sequential execution:
+#
+# 1. build-assets: Builds JavaScript/CSS for theme and plugin.
+# 2. composer-plugins: Installs PHP dependencies via Composer (waits for build-assets).
+# 3. deploy: Combines all artifacts and deploys to VIP (waits for both previous jobs).
+#
+# Jobs run in parallel by default, but we use 'needs:' to create sequential dependencies
+# =============================================================================
+jobs:
+  # =========================================================================
+  # JOB 1: BUILD ASSETS
+  # =========================================================================
+  # This job handles all JavaScript/CSS asset building for the monorepo.
+  # It builds both the child theme and custom blocks plugin assets.
+  # =========================================================================
+  build-assets:
+    name: Build Assets # Display name in GitHub Actions UI.
+    runs-on: ubuntu-latest # Use latest Ubuntu runner.
+
+    # =======================================================================
+    # JOB PERMISSIONS
+    # =======================================================================
+    # Override global permissions - we need write access for artifacts
+    # =======================================================================
+    permissions:
+      contents: write # Allow writing to repository.
+    # =======================================================================
+    # BUILD ASSETS JOB STEPS
+    # =======================================================================
+    # Steps run sequentially within this job to build all monorepo assets.
+    # =======================================================================
+    steps:
+      # =======================================================================
+      # STEP 1: CHECKOUT SOURCE CODE
+      # =======================================================================
+      # Download the repository code to the runner's workspace.
+      # =======================================================================
+      - name: Check out source code
+        uses: actions/checkout@v5 # Official GitHub action for checking out code.
+
+      # =======================================================================
+      # STEP 2: SETUP NODE.JS WITH CACHING
+      # =======================================================================
+      # Install Node.js and configure npm caching for faster builds
+      # In a monorepo, we cache multiple package-lock.json files
+      # =======================================================================
+      - name: Install Node.js
+        uses: actions/setup-node@v5 # Official GitHub action for Node.js setup.
+        with:
+          node-version: '20' # Use Node.js version 20 (LTS).
+          cache: 'npm' # Enable npm caching for faster dependency installation.
+          cache-dependency-path: | # Cache multiple package-lock.json files.
+            ${{ env.DIR_CHILD_THEME }}/package-lock.json
+            ${{ env.DIR_CUSTOM_BLOCKS_PLUGIN }}/package-lock.json
+
+      # =======================================================================
+      # STEP 3: INSTALL THEME DEPENDENCIES
+      # =======================================================================
+      # Install npm packages defined in package.json.
+      # Using 'npm ci' for faster, reliable, reproducible builds.
+      # =======================================================================
+      - name: Install theme dependencies
+        run: npm ci --prefix ${{ env.DIR_CHILD_THEME }}
+        # --prefix: Run command in the specified directory
+
+      # =======================================================================
+      # STEP 4: BUILD THEME ASSETS
+      # =======================================================================
+      # Compile and optimize theme JavaScript, CSS, and other assets.
+      # =======================================================================
+      - name: Build theme assets
+        run: npm run build --prefix ${{ env.DIR_CHILD_THEME }}
+        # Executes the 'build' script defined in the directory's package.json.
+
+      # =======================================================================
+      # STEP 5: INSTALL PLUGIN DEPENDENCIES
+      # =======================================================================
+      # Install npm packages for the custom blocks plugin.
+      # =======================================================================
+      - name: Install plugin dependencies
+        run: npm ci --prefix ${{ env.DIR_CUSTOM_BLOCKS_PLUGIN }}
+
+      # =======================================================================
+      # STEP 6: BUILD PLUGIN ASSETS
+      # =======================================================================
+      # Compile and optimize plugin JavaScript, CSS, and other assets.
+      # =======================================================================
+      - name: Build plugin assets
+        run: npm run build --prefix ${{ env.DIR_CUSTOM_BLOCKS_PLUGIN }}
+
+      # =======================================================================
+      # STEP 7: VERIFY BUILD SUCCESS
+      # =======================================================================
+      # Test that the build process completed successfully by checking
+      # if expected output files were created.
+      # =======================================================================
+      - name: Test the build
+        run: |
+          # Check if the main CSS file was created (indicates successful build)
+          if [ -f ${{ env.DIR_CHILD_THEME }}/assets/build/main.css ]; then
+            echo "✅ Build succeeded - main.css found";
+          else
+            echo "❌ Build failed - main.css file missing";
+            exit 1  # Exit with error code to fail the workflow
+          fi
+
+      # =======================================================================
+      # STEP 8: UPLOAD BUILD ARTIFACTS
+      # =======================================================================
+      # Save built assets as artifacts so they can be used by the deploy job.
+      # This is how we pass data between jobs in GitHub Actions.
+      # =======================================================================
+      - name: Upload built asset artifacts
+        uses: actions/upload-artifact@v4 # Official GitHub action for uploading artifacts.
+        with:
+          name: built-assets # Name to identify this artifact.
+          path: | # Paths to include in the artifact.
+            ${{ env.DIR_CHILD_THEME }}/assets/build/
+            ${{ env.DIR_CUSTOM_BLOCKS_PLUGIN }}/assets/build/
+          retention-days: 1 # Keep artifacts for 1 day.
+
+  # =========================================================================
+  # JOB 2: COMPOSER PLUGINS
+  # =========================================================================
+  # This job handles PHP dependency management via Composer.
+  # It installs WordPress plugins and other PHP dependencies if needed.
+  # =========================================================================
+  composer-plugins:
+    name: Composer Plugins # Display name in GitHub Actions UI.
+    runs-on: ubuntu-latest # Use latest Ubuntu runner.
+
+    # =======================================================================
+    # JOB DEPENDENCIES
+    # =======================================================================
+    # This job waits for build-assets to complete before starting.
+    # This creates a sequential workflow: build-assets → composer-plugins.
+    # =======================================================================
+    needs: build-assets # Wait for build-assets job to complete.
+
+    # =======================================================================
+    # JOB PERMISSIONS
+    # =======================================================================
+    # Override global permissions - we need write access.
+    # =======================================================================
+    permissions:
+      contents: write # Allow writing to repository (needed for artifacts).
+
+    # =======================================================================
+    # COMPOSER PLUGINS JOB STEPS
+    # =======================================================================
+    # Steps to install WordPress plugins.
+    # =======================================================================
+    steps:
+      # =======================================================================
+      # STEP 1: CHECKOUT SOURCE CODE
+      # =======================================================================
+      # Download the repository code to the runner's workspace.
+      # =======================================================================
+      - name: Check out source code
+        uses: actions/checkout@v5 # Official GitHub action for checking out code.
+
+      # =======================================================================
+      # STEP 2: SETUP PHP ENVIRONMENT
+      # =======================================================================
+      # Install and configure PHP for Composer operations.
+      # =======================================================================
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2 # Popular PHP setup action
+        with:
+          php-version: '8.2' # Use PHP version 8.2 (current stable).
+
+      # =======================================================================
+      # STEP 3: INSTALL COMPOSER DEPENDENCIES
+      # =======================================================================
+      # Install PHP packages and WordPress plugins via Composer.
+      # =======================================================================
+      - name: Install Composer dependencies
+        run: |
+          composer install --no-dev --prefer-dist --optimize-autoloader
+        # --no-dev: Skip development dependencies (faster, smaller)
+        # --prefer-dist: Use distribution packages instead of source
+        # --optimize-autoloader: Optimize autoloader for production
+
+      # =======================================================================
+      # STEP 4: UPLOAD COMPOSER ARTIFACTS
+      # =======================================================================
+      # Save installed WordPress plugins as artifacts for the deploy job.
+      # Install Composer plugins in separate and temporary directory to avoid conflicts with existing plugins.
+      # =======================================================================
+      - name: Upload composer dependencies
+        uses: actions/upload-artifact@v4 # Official GitHub action for uploading artifacts.
+        with:
+          name: composer-wp-plugins # Name to identify this artifact.
+          path: composer-wp-plugins/ # Path to WordPress plugins directory.
+          retention-days: 1 # Keep artifacts for 1 day.
+
+  # =========================================================================
+  # JOB 3: DEPLOY
+  # =========================================================================
+  # This job combines all artifacts from previous jobs and deploys to VIP.
+  # It downloads built assets and composer dependencies, then pushes to the *-built branch.
+  # =========================================================================
+  deploy:
+    name: Deploy # Display name in GitHub Actions UI.
+    runs-on: ubuntu-latest # Use latest Ubuntu runner.
+
+    # =======================================================================
+    # JOB DEPENDENCIES
+    # =======================================================================
+    # This job waits for BOTH build-assets AND composer-plugins to complete.
+    # This creates the final step: build-assets + composer-plugins → deploy.
+    # =======================================================================
+    needs: [build-assets, composer-plugins] # Wait for both jobs to complete.
+
+    # =======================================================================
+    # JOB PERMISSIONS
+    # =======================================================================
+    # Override global permissions - we need write access to push built branch.
+    # =======================================================================
+    permissions:
+      contents: write
+
+    # =======================================================================
+    # JOB-SPECIFIC ENVIRONMENT VARIABLES
+    # =======================================================================
+    # Variables specific to the deployment process.
+    # =======================================================================
+    env:
+      # The suffix to append to the current branch name when deploying the built branch.
+      # If migrating from another CI provider to GitHub Actions, a different suffix, like -gha-built,
+      # can be used to avoid conflicts during the CI migration.
+      #
+      # Example: If current branch is 'gha-monorepo-demo', the built branch will be 'gha-monorepo-demo-built'
+      #
+      # NOTE: For the changes to be deployed, the WordPress VIP application must be configured
+      # to deploy from the built branch.
+      # https://docs.wpvip.com/code-deployment/default-deployment/deploying-branches/update/
+      VIP_DEPLOY_SUFFIX: "-built"
+
+    # =======================================================================
+    # DEPLOY JOB STEPS
+    # =======================================================================
+    # Steps to combine artifacts and deploy to VIP built branch.
+    # =======================================================================
+    steps:
+      # =======================================================================
+      # STEP 1: CHECKOUT SOURCE CODE
+      # =======================================================================
+      # Download the repository code to the runner's workspace.
+      # =======================================================================
+      - name: Check out source code
+        uses: actions/checkout@v5 # Official GitHub action for checking out code.
+
+      # =======================================================================
+      # STEP 2: DOWNLOAD BUILT ASSETS
+      # =======================================================================
+      # Retrieve the built JavaScript/CSS assets from the build-assets job.
+      # This restores the theme and plugin assets that were built earlier.
+      # =======================================================================
+      - name: Download built assets
+        uses: actions/download-artifact@v4 # Official GitHub action for downloading artifacts.
+        with:
+          name: built-assets # Name of the artifact from build-assets job.
+          path: . # Download to current directory (preserves folder structure).
+
+      # =======================================================================
+      # STEP 3: DOWNLOAD COMPOSER DEPENDENCIES
+      # =======================================================================
+      # Retrieve the WordPress plugins from the composer-plugins job.
+      # This restores the PHP dependencies that were installed earlier.
+      # =======================================================================
+      - name: Download composer dependencies
+        uses: actions/download-artifact@v4 # Official GitHub action for downloading artifacts.
+        with:
+          name: composer-wp-plugins # Name of the artifact from composer-plugins job.
+          path: ./plugins  # Download to plugins directory.
+
+      # =======================================================================
+      # STEP 4: DEPLOY TO VIP BUILT BRANCH
+      # =======================================================================
+      # This is the final and most important step for WordPress VIP deployment.
+      # It pushes the built assets to a separate branch that the VIP Platform monitors for deployment.
+      # =======================================================================
+
+      # REQUIRED: Fetch and run the VIP deploy script to push the build artifacts to the built branch.
+      # If amending an existing config, the step below is one of the required steps to include.
+      # This will push the result to the {current_branch}-built branch,
+      # or {current_branch}{VIP_DEPLOY_SUFFIX} if a suffix is configured above.
+      #
+      # Example: If current branch is 'gha-monorepo-demo', this creates/updates 'gha-monorepo-demo-built'
+      #
+      # NOTE: For the changes to be deployed, the WordPress VIP application must be configured
+      # to deploy from the built branch.
+      # https://docs.wpvip.com/code-deployment/default-deployment/deploying-branches/update/
+      #
+      # The {{ secrets.GITHUB_TOKEN }} variable is an automatically generated token used to push
+      # the new built branch to this GitHub repository.
+      # https://docs.github.com/en/actions/security-for-github-actions/security-guides/automatic-token-authentication
+      - name: Commit to built branch
+        run: |
+          # Create authentication token for GitHub API access
+          export GITHUB_AUTH_TOKEN=$(echo -n "x-access-token:${{ secrets.GITHUB_TOKEN }}" | base64 -w 0)
+
+          # Download and execute the VIP deployment script
+          # This script will:
+          # 1. Run checks to avoid recursion and aborts if required variables or directories are missing.
+          # 2. Syncs the current branch with the destination*-built branch.
+          # 3. Commits any changes (if there are any) and pushes them to the *-built branch with the original commit's author info.
+          # 4. The VIP platform deployment process is triggered.
+          bash <(curl -s "https://raw.githubusercontent.com/Automattic/vip-go-build/master/deploy.sh")

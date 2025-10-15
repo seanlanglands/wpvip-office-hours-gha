@@ -1,0 +1,28 @@
+{
+	"private": true,
+	"name": "custom-blocks-plugin",
+	"version": "1.0.0",
+	"author": "Automattic, WordPress VIP",
+	"license": "GPL-2.0-or-later",
+	"keywords": [
+		"wordpress"
+	],
+	"homepage": "https://github.com/wpcomvip/sean-test/",
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/wpcomvip/sean-test.git"
+	},
+	"config": {
+		"entry_points": "assets/src/js/main.js assets/src/js/editor.js --output-path=assets/build --webpack-no-externals"
+	},
+	"devDependencies": {
+		"@wordpress/scripts": "30.25.0"
+	},
+	"scripts": {
+		"build": "wp-scripts build $npm_package_config_entry_points",
+		"start": "wp-scripts start $npm_package_config_entry_points"
+	},
+	"browserslist": [
+		"defaults"
+	]
+}
