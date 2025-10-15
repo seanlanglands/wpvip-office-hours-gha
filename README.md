@@ -27,5 +27,6 @@ The following directories/files are relevant to the GitHub Actions demo. All oth
 * `.github/workflows/ci-build-and-deploy.yml`: Basic example of a single workflow job that triggers on a commit push to a branch and builds static assets for a theme.
 * `.github/workflows/ci-monorepo-build-and-deploy.yml`: Workflow that demonstrates multiple sequential jobs, dependency caching, and artifacts.
 * `client-mu-plugins/custom-blocks-plugin` and `themes/child-theme`: Basic example of a custom plugin and theme that both require production-ready assets to be built during a CI/CD pipeline.
+* `composer.json`: Configured to pull in a WordPress plugin from Packagist, which is used in our pipeline.
 * `.deployignore`: Demonstrates excluding `src` directories from being deployed.
 * `.gitignore`: Demonstrates excluding `build` and composer installed plugins directories from being deployed.
